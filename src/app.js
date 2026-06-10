@@ -16,6 +16,7 @@ import {
   getDefaultStats,
   getMetricConfigs,
   getPrimaryNudge,
+  getPetStages,
 } from './healthModel.js';
 import {
   getHealthPreset,
@@ -66,6 +67,7 @@ const samplePrompts = [
 ];
 
 const careActions = getCareActions();
+const petStages = getPetStages();
 const careButtonMeta = {
   feed: { icon: '🍓', reaction: 'feed', message: 'Nom nom nom! Energy and happiness bloom.' },
   play: { icon: '⚽', reaction: 'play', message: 'Mochi bounces through the gallery like a rubber ball.' },
@@ -111,6 +113,8 @@ const nodes = {
   healthRing: document.querySelector('#health-ring'),
   healthScore: document.querySelector('#health-score'),
   healthNudge: document.querySelector('#health-nudge'),
+  healthScoreCopy: document.querySelector('#health-score-copy'),
+  healthStageLegend: document.querySelector('#health-stage-legend'),
   healthMetricCards: document.querySelector('#health-metric-cards'),
   healthPresets: document.querySelector('#health-presets'),
   healthEnabledCount: document.querySelector('#health-enabled-count'),
@@ -415,7 +419,7 @@ function renderCandidates(candidates) {
 
 function renderHealth(healthResult) {
   const configs = getMetricConfigs(healthState.settings);
-  const activeCount = Object.values(configs).filter((config) => config.enabled).length;
+  const activeCount = healthResult.activeMetricCount;
 
   nodes.healthRing.style.setProperty('--score', healthResult.score);
   nodes.healthRing.dataset.stage = healthResult.stage.id;
@@ -423,26 +427,59 @@ function renderHealth(healthResult) {
   nodes.healthNudge.textContent = `${healthResult.stage.message} ${getPrimaryNudge(healthResult)}`;
   nodes.healthEnabledCount.textContent = `${activeCount} active`;
 
+  renderHealthScoreCopy(healthResult, activeCount);
+  renderHealthStageLegend(healthResult);
   renderHealthMetricCards(healthResult);
   renderHealthPresets();
   renderHealthPicker(configs);
   renderHealthValues(configs);
 }
 
+function renderHealthScoreCopy(healthResult, activeCount) {
+  if (!activeCount) {
+    nodes.healthScoreCopy.textContent = 'Turn on at least one stat to score Mochi. Disabled stats stay out of the total.';
+    return;
+  }
+
+  const leadCopy = activeCount === 1
+    ? '1 enabled stat drives the full score.'
+    : `${activeCount} enabled stats share the full score.`;
+  const weakestLabel = healthResult.weakestMetric
+    ? healthResult.breakdown[healthResult.weakestMetric]?.label
+    : '';
+  const weakestCopy = weakestLabel ? ` ${weakestLabel} is pulling the score down most right now.` : '';
+  nodes.healthScoreCopy.textContent = `${leadCopy} Each card shows its weight share and points.${weakestCopy}`;
+}
+
+function renderHealthStageLegend(healthResult) {
+  nodes.healthStageLegend.innerHTML = petStages
+    .map((stage) => `
+      <div class="health-stage-chip" data-active="${stage.id === healthResult.stage.id ? 'true' : 'false'}">
+        <strong>${escapeHtml(stage.label)}</strong>
+        <small>${escapeHtml(stage.range)}</small>
+      </div>
+    `)
+    .join('');
+}
+
 function renderHealthMetricCards(healthResult) {
   const metricEntries = Object.entries(healthResult.breakdown);
 
   if (!metricEntries.length) {
-    nodes.healthMetricCards.innerHTML = '<p class="health-nudge">No stats selected yet.</p>';
+    nodes.healthMetricCards.innerHTML = '<p class="health-nudge">Turn on at least one stat to see Mochi\'s score breakdown.</p>';
     return;
   }
 
   nodes.healthMetricCards.innerHTML = metricEntries
-    .map(([key, metric]) => `
+    .map(([, metric]) => `
       <article class="health-mini-card ${metric.status === 'watch' ? 'watch' : ''}">
-        <h3>${escapeHtml(metric.label)}</h3>
-        <p>${escapeHtml(formatGoal(metric))}</p>
+        <div class="health-mini-head">
+          <h3>${escapeHtml(metric.label)}</h3>
+          <span class="health-contribution">${escapeHtml(formatScoreContribution(metric.contribution))}</span>
+        </div>
+        <p>${escapeHtml(formatMetricProgress(metric))}</p>
         <strong>${escapeHtml(formatMetricValue(metric.value, metric.unit))}</strong>
+        <small>${escapeHtml(`${formatMetricGap(metric)} • ${formatWeightShare(metric)}`)}</small>
         <div class="health-bar" aria-hidden="true"><i style="--progress: ${Math.round(metric.progress * 100)}%"></i></div>
       </article>
     `)
@@ -859,12 +896,38 @@ function formatGoal(metric) {
   return `${comparison} ${formatMetricValue(metric.target, metric.unit)}`;
 }
 
+function formatMetricProgress(metric) {
+  return `${formatGoal(metric)} • ${Math.round(metric.progress * 100)}% there`;
+}
+
+function formatMetricGap(metric) {
+  if (metric.progress >= 1) return 'Goal met';
+
+  const gap = metric.direction === 'lower'
+    ? Math.max(metric.value - metric.target, 0)
+    : Math.max(metric.target - metric.value, 0);
+  const label = metric.direction === 'lower' ? 'above goal' : 'short of goal';
+  return `${formatMetricValue(gap, metric.unit)} ${label}`;
+}
+
+function formatWeightShare(metric) {
+  return `${formatPercent(metric.weightShare * 100)} weight share`;
+}
+
+function formatScoreContribution(contribution) {
+  return `+${formatMetricValue(Math.round(contribution * 10) / 10)} pts`;
+}
+
 function formatMetricValue(value, unit = '') {
   const options = Number.isInteger(value)
     ? { maximumFractionDigits: 0 }
     : { maximumFractionDigits: 1 };
   const formatted = new Intl.NumberFormat('en-US', options).format(value);
   return unit ? `${formatted}${unit}` : formatted;
+}
+
+function formatPercent(value) {
+  return `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value)}%`;
 }
 
 function clampNumber(value, min, max, fallback) {

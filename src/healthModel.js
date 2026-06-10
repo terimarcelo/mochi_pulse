@@ -165,6 +165,7 @@ export function calculatePetHealth(stats, metricSettings = createMetricSettings(
     score,
     stage: getPetStage(score),
     breakdown,
+    activeMetricCount: activeConfigs.length,
     weakestMetric: choosePriorityMetric(breakdown),
   };
 }
@@ -198,6 +199,10 @@ export function getPetStage(score) {
   if (safeScore >= 55) return PET_STAGES[2];
   if (safeScore >= 35) return PET_STAGES[1];
   return PET_STAGES[0];
+}
+
+export function getPetStages() {
+  return PET_STAGES.map((stage) => ({ ...stage }));
 }
 
 export function getPrimaryNudge(result) {
@@ -235,6 +240,7 @@ function scoreMetric(value, config, normalizedWeight) {
     target: config.target,
     score: Math.round(progress * 100),
     contribution: progress * normalizedWeight * 100,
+    weightShare: normalizedWeight,
     status: progress >= 1 ? 'met' : 'watch',
     progress,
     direction: config.direction,

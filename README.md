@@ -21,5 +21,6 @@ npm run check
 
 - Health presets let reviewers switch between Lazy, Balanced, and Active days.
 - Users can choose which health metrics count and edit their goals.
+- The health panel now shows stage bands plus each metric's live weight share and score contribution.
 - The Met artwork search provides a gallery backdrop and pet identity flavor.
 - Pet care actions and mobile motion events trigger expressive reactions.

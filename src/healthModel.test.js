@@ -5,6 +5,7 @@ import {
   calculatePetHealth,
   createMetricSettings,
   getPrimaryNudge,
+  getPetStages,
   getPetStage,
 } from './healthModel.js';
 
@@ -76,7 +77,9 @@ test('calculatePetHealth only scores metrics the user has selected', () => {
   );
 
   assert.equal(result.score, 100);
+  assert.equal(result.activeMetricCount, 1);
   assert.deepEqual(Object.keys(result.breakdown), ['steps']);
+  assert.equal(result.breakdown.steps.weightShare, 1);
 });
 
 test('calculatePetHealth supports lower-is-better user goals for vitals', () => {
@@ -118,4 +121,11 @@ test('getPetStage maps midrange scores to a tired but recoverable pet', () => {
   assert.equal(getPetStage(54).id, 'tired');
   assert.equal(getPetStage(55).id, 'steady');
   assert.equal(getPetStage(82).id, 'thriving');
+});
+
+test('getPetStages exposes the four score bands in order', () => {
+  assert.deepEqual(
+    getPetStages().map((stage) => `${stage.id}:${stage.range}`),
+    ['fragile:0-34', 'tired:35-54', 'steady:55-81', 'thriving:82-100'],
+  );
 });
