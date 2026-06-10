@@ -1,3 +1,4 @@
 .DS_Store
 .codex-screenshots/
+.codex-artifacts/
 node_modules/
