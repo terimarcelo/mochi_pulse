@@ -3,16 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mochi Pulse</title>
+    <title>Metagotchi Gallery</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <main class="app-shell" id="app" data-empty="true">
       <section class="play-panel" aria-labelledby="app-title">
         <header class="masthead">
-          <div>
-            <p class="eyebrow">Health mirror pet lab</p>
-            <h1 id="app-title">Mochi Pulse</h1>
+          <div class="brand-lockup">
+            <p class="eyebrow">The Met Collection Pet Lab</p>
+            <h1 id="app-title">
+              <span>Metagotchi</span>
+              <span>Gallery</span>
+            </h1>
           </div>
           <a class="pages-link" href="https://aaron-ferber.github.io/codex_hackathon/">/codex_hackathon</a>
         </header>
@@ -31,12 +40,13 @@
             </div>
 
             <div class="pet-stage">
+              <div class="scene-window" aria-hidden="true"></div>
               <div class="wall-glow" aria-hidden="true">
                 <img id="pet-art" alt="" hidden />
               </div>
               <div class="reaction-effects" id="reaction-effects" aria-hidden="true"></div>
               <div class="pedestal" aria-hidden="true"></div>
-              <div class="met-pet" aria-label="Mochi Pulse virtual pet">
+              <div class="met-pet" aria-label="Metagotchi Gallery virtual pet">
                 <div class="pet-tail" aria-hidden="true"></div>
                 <div class="pet-ear pet-ear-left"></div>
                 <div class="pet-ear pet-ear-right"></div>
@@ -85,11 +95,24 @@
           <p class="status-message" id="status-message" data-tone="neutral">
             Paste a Met object page, API URL, object ID, or search phrase.
           </p>
+          <div class="sample-row" id="sample-row" aria-label="Quick hatch samples"></div>
+          <div class="candidate-list" id="candidate-list" aria-label="Search results"></div>
         </form>
 
-        <div class="sample-row" id="sample-row" aria-label="Quick hatch samples"></div>
+        <article class="art-card">
+          <div>
+            <p class="eyebrow">Source work</p>
+            <h2 id="art-title">No artwork selected</h2>
+            <p id="art-meta" class="art-meta"></p>
+          </div>
+          <div class="tag-row" id="art-tags"></div>
+          <p id="pet-lore" class="pet-lore">Choose a Met object to wake the first pet.</p>
+          <a id="met-link" class="met-link" target="_blank" rel="noreferrer">The Met</a>
+        </article>
 
-        <div class="candidate-list" id="candidate-list" aria-label="Search results"></div>
+        <article class="tip-card" aria-live="polite">
+          <p id="tip-copy" class="tip-copy">TIP: Pick a new Met object to repaint Mochi's gallery mood.</p>
+        </article>
 
         <form class="health-card" id="health-form" aria-labelledby="health-title">
           <div class="health-score-row">
@@ -120,17 +143,6 @@
             Enable motion play
           </button>
         </form>
-
-        <article class="art-card">
-          <div>
-            <p class="eyebrow">Backdrop spirit</p>
-            <h2 id="art-title">No artwork selected</h2>
-            <p id="art-meta" class="art-meta"></p>
-          </div>
-          <div class="tag-row" id="art-tags"></div>
-          <p id="pet-lore" class="pet-lore">Choose a Met object to wake the first pet.</p>
-          <a id="met-link" class="met-link" target="_blank" rel="noreferrer">The Met</a>
-        </article>
 
         <div class="meter-list" id="meter-list" aria-label="Pet care meters"></div>
       </section>

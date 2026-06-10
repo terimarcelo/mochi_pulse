@@ -58,21 +58,21 @@ const fallbackObjects = {
 };
 
 const samplePrompts = [
-  { label: 'Cypress', value: String(DEFAULT_OBJECT_ID), type: 'id' },
-  { label: 'Irises', value: 'irises van gogh', type: 'query' },
-  { label: 'Moonlight', value: 'moonlight landscape', type: 'query' },
-  { label: 'Cat', value: 'cat', type: 'query' },
-  { label: 'Blue vase', value: 'blue vase', type: 'query' },
-  { label: 'Armor', value: 'armor', type: 'query' },
+  { label: 'Cypress', value: String(DEFAULT_OBJECT_ID), type: 'id', icon: '🌿' },
+  { label: 'Irises', value: 'irises van gogh', type: 'query', icon: '🌸' },
+  { label: 'Moonlight', value: 'moonlight landscape', type: 'query', icon: '🌙' },
+  { label: 'Cat', value: 'cat', type: 'query', icon: '🐱' },
+  { label: 'Blue vase', value: 'blue vase', type: 'query', icon: '🏺' },
+  { label: 'Armor', value: 'armor', type: 'query', icon: '🛡️' },
 ];
 
 const careActions = getCareActions();
 const petStages = getPetStages();
 const careButtonMeta = {
-  feed: { icon: '🍓', reaction: 'feed', message: 'Nom nom nom! Energy and happiness bloom.' },
-  play: { icon: '⚽', reaction: 'play', message: 'Mochi bounces through the gallery like a rubber ball.' },
-  conserve: { icon: '🧹', reaction: 'conserve', message: 'Tiny gloves, gentle brush, guardian sparkle.' },
-  study: { icon: '📚', reaction: 'study', message: 'New trait discovered: artwork curiosity unlocked.' },
+  feed: { icon: '❤', reaction: 'feed', message: 'A tiny museum snack perks this pet right up.' },
+  play: { icon: '◔', reaction: 'play', message: 'Mochi bounces through the gallery like a rubber ball.' },
+  conserve: { icon: '🍃', reaction: 'conserve', message: 'Tiny gloves, gentle brush, guardian sparkle.' },
+  study: { icon: '📖', reaction: 'study', message: 'New trait discovered: artwork curiosity unlocked.' },
 };
 const motionReactionMap = {
   shake: { careAction: 'play', reaction: 'play', message: 'Shake play makes Mochi do a big happy bounce.' },
@@ -85,6 +85,10 @@ const healthState = loadHealthState();
 const motionQueue = createReactionQueue({ now: 0 });
 let reactionTimer;
 let motionEnabled = false;
+const uiState = {
+  activeSampleValue: String(DEFAULT_OBJECT_ID),
+  lastSearchQuery: '',
+};
 
 const nodes = {
   app: document.querySelector('#app'),
@@ -121,6 +125,7 @@ const nodes = {
   healthPicker: document.querySelector('#health-picker'),
   healthValues: document.querySelector('#health-values'),
   motionButton: document.querySelector('#motion-button'),
+  tipCopy: document.querySelector('#tip-copy'),
 };
 
 renderSamples();
@@ -148,6 +153,8 @@ nodes.motionButton.addEventListener('click', enableMotionPlay);
 async function handleHatchInput(value) {
   const objectId = extractObjectId(value);
   if (objectId) {
+    setActiveSampleFromValue(String(objectId));
+    renderSamples();
     await adoptObject(objectId);
     return;
   }
@@ -171,6 +178,11 @@ async function adoptObject(objectId, options = {}) {
   try {
     setBusy(true);
     if (!options.silent) setStatus(`Fetching Met object ${objectId}...`, 'loading');
+    if (samplePrompts.some((sample) => sample.value === String(objectId))) {
+      setActiveSampleFromValue(String(objectId));
+      renderSamples();
+    }
+    uiState.lastSearchQuery = '';
 
     const rawObject = await fetchMetObject(objectId);
     const artwork = normalizeMetObject(rawObject);
@@ -203,6 +215,10 @@ async function adoptObject(objectId, options = {}) {
 async function searchObjects(query) {
   try {
     setBusy(true);
+    setActiveSampleFromQuery(query);
+    uiState.lastSearchQuery = query;
+    renderSamples();
+    refreshTip();
     setStatus(`Searching The Met for "${query}"...`, 'loading');
     const response = await fetch(`${MET_API_BASE}/search?hasImages=true&q=${encodeURIComponent(query)}`);
     if (!response.ok) throw new Error('The Met search did not respond.');
@@ -217,7 +233,7 @@ async function searchObjects(query) {
 
     const candidates = await fetchCandidateObjects(ids);
     renderCandidates(candidates);
-    setStatus(`Choose one ${query} object as Mochi's backdrop spirit.`, 'success');
+    setStatus(`Choose one ${query} object as Mochi's backdrop.`, 'success');
   } catch (error) {
     setStatus(error.message, 'error');
   } finally {
@@ -284,14 +300,14 @@ function render() {
   applyLookDataset(design.parts);
 
   nodes.petName.textContent = pet.name;
-  nodes.petMood.textContent = `${mood.label} / ${healthResult.stage.label}`;
+  nodes.petMood.textContent = `${mood.label.toUpperCase()} • ${evolution.label.toUpperCase()}`;
   nodes.petLore.textContent = pet.lore;
-  nodes.petMessage.textContent = `${evolution.message} ${healthResult.stage.message}`;
-  nodes.strengthBadge.textContent = `${evolution.label} form - ${design.parts.body.label} - STR ${evolution.strength}`;
+  nodes.petMessage.textContent = care.lastMessage || `${evolution.message} ${healthResult.stage.message}`;
+  nodes.strengthBadge.textContent = `${healthResult.stage.label} energy • ${design.parts.body.label} • STR ${evolution.strength}`;
   nodes.artTitle.textContent = pet.title;
   nodes.artMeta.textContent = [pet.artist, pet.date, pet.department].filter(Boolean).join(' - ');
   nodes.metLink.href = pet.metUrl;
-  nodes.metLink.textContent = `Met object ${pet.artworkId}`;
+  nodes.metLink.textContent = 'The Met';
 
   if (pet.imageUrl) {
     nodes.petArt.hidden = false;
@@ -307,6 +323,7 @@ function render() {
   renderMeters(care);
   renderGallery();
   markFavoriteCare(pet.favoriteCare);
+  renderTip(healthResult, activeEntry);
 }
 
 function renderEmptyPet(healthResult) {
@@ -325,10 +342,10 @@ function renderEmptyPet(healthResult) {
   nodes.device.dataset.designTier = design.tier;
   applyLookDataset(design.parts);
   nodes.petName.textContent = 'Awaiting hatch';
-  nodes.petMood.textContent = healthResult.stage.label;
+  nodes.petMood.textContent = `DORMANT • ${evolution.label.toUpperCase()}`;
   nodes.petLore.textContent = 'Choose a Met object to wake the first pet.';
-  nodes.petMessage.textContent = 'Hatch a Met backdrop, then keep Mochi strong with care and health signals.';
-  nodes.strengthBadge.textContent = `${evolution.label} form - STR ${evolution.strength}`;
+  nodes.petMessage.textContent = 'Pick a Met artwork to bring the gallery to life.';
+  nodes.strengthBadge.textContent = `${healthResult.stage.label} energy • STR ${evolution.strength}`;
   nodes.artTitle.textContent = 'No artwork selected';
   nodes.artMeta.textContent = '';
   nodes.artTags.innerHTML = '';
@@ -337,19 +354,28 @@ function renderEmptyPet(healthResult) {
   nodes.metLink.removeAttribute('href');
   nodes.metLink.textContent = 'The Met';
   renderMeters(emptyCare);
+  renderTip(healthResult);
 }
 
 function renderSamples() {
   nodes.sampleRow.innerHTML = samplePrompts
     .map((sample) => `
-      <button type="button" data-sample-type="${sample.type}" data-sample-value="${escapeHtml(sample.value)}">
-        ${escapeHtml(sample.label)}
+      <button
+        type="button"
+        data-sample-type="${sample.type}"
+        data-sample-value="${escapeHtml(sample.value)}"
+        aria-pressed="${uiState.activeSampleValue === sample.value ? 'true' : 'false'}"
+      >
+        <span aria-hidden="true">${escapeHtml(sample.icon ?? '✨')}</span>
+        <span>${escapeHtml(sample.label)}</span>
       </button>
     `)
     .join('');
 
   nodes.sampleRow.querySelectorAll('button').forEach((button) => {
     button.addEventListener('click', async () => {
+      uiState.activeSampleValue = button.dataset.sampleValue;
+      renderSamples();
       if (button.dataset.sampleType === 'id') {
         await adoptObject(Number(button.dataset.sampleValue));
       } else {
@@ -433,6 +459,35 @@ function renderHealth(healthResult) {
   renderHealthPresets();
   renderHealthPicker(configs);
   renderHealthValues(configs);
+}
+
+function renderTip(healthResult, activeEntry) {
+  nodes.tipCopy.textContent = buildTipMessage(healthResult, activeEntry);
+}
+
+function refreshTip() {
+  renderTip(
+    calculatePetHealth(healthState.stats, healthState.settings),
+    state.petsById[state.activeId],
+  );
+}
+
+function buildTipMessage(healthResult, activeEntry) {
+  if (uiState.lastSearchQuery) {
+    return `TIP: Pick one of the ${uiState.lastSearchQuery} results to restyle Mochi's room.`;
+  }
+
+  if (activeEntry?.pet) {
+    const favoriteCare = careActions[activeEntry.pet.favoriteCare]?.label?.toLowerCase() ?? 'play';
+    return `TIP: ${activeEntry.pet.name} responds best to ${favoriteCare} when the gallery feels quiet.`;
+  }
+
+  if (healthResult?.weakestMetric) {
+    const weakestLabel = healthResult.breakdown[healthResult.weakestMetric]?.label?.toLowerCase() ?? 'health';
+    return `TIP: Nudge ${weakestLabel} upward to help Mochi glow a little brighter.`;
+  }
+
+  return 'TIP: Pick a new Met object to repaint Mochi\'s gallery mood.';
 }
 
 function renderHealthScoreCopy(healthResult, activeCount) {
@@ -800,7 +855,7 @@ function renderGallery() {
           ${renderThumbnail(entry.pet.imageUrl)}
           <span>
             <strong>${escapeHtml(entry.pet.name)}</strong>
-            <small>${escapeHtml(mood.label)} - ${escapeHtml(entry.pet.department)}</small>
+            <small>${escapeHtml(`${mood.label} • ${entry.pet.department}`)}</small>
           </span>
         </button>
       `;
@@ -825,6 +880,23 @@ function markFavoriteCare(favoriteCare) {
   nodes.careButtons.querySelectorAll('button').forEach((button) => {
     button.dataset.favorite = button.dataset.careAction === favoriteCare ? 'true' : 'false';
   });
+}
+
+function setActiveSampleFromValue(value) {
+  const normalized = String(value ?? '');
+  uiState.activeSampleValue = samplePrompts.some((sample) => sample.value === normalized)
+    ? normalized
+    : '';
+}
+
+function setActiveSampleFromQuery(query) {
+  const normalized = String(query ?? '').trim().toLowerCase();
+  const match = samplePrompts.find((sample) => (
+    sample.type === 'query'
+    && sample.value.toLowerCase() === normalized
+  ));
+
+  uiState.activeSampleValue = match?.value ?? '';
 }
 
 function loadGallery() {
